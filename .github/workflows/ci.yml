@@ -1,0 +1,23 @@
+# Each push and pull request: this computer's build of the program, and the smoke test with the speech model QuickAI uses.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: whisper-base-q8_0-c577b9a8
+      - name: Build
+        run: build/local.sh
+      - name: Smoke test
+        run: python3 tests/smoke.py build/out/local-avx2/quickai-whisper-avx2

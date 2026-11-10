@@ -1,0 +1,101 @@
+# A tag vX.Y.Z builds the programs for Linux, Windows and macOS, tests each on its own system, and makes a draft
+# release of them with their SHA256SUMS. The draft is published by hand (README.md, "Releasing").
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build (Ubuntu 20.04 in Docker)
+        run: build/linux.sh
+      - name: Smoke test
+        run: |
+          for p in quickai-whisper quickai-whisper-avx2; do
+            python3 tests/smoke.py build/out/quickai-whisper-*-linux-x86_64/$p
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build (MinGW-w64 in Docker)
+        run: build/windows.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  windows-test:
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+      - name: Smoke test on Windows
+        shell: pwsh
+        run: |
+          Expand-Archive -Path (Get-ChildItem dist/*.zip).FullName -DestinationPath out
+          $dir = (Get-ChildItem out -Directory | Select-Object -First 1).FullName
+          python tests/smoke.py "$dir/quickai-whisper.exe"
+          python tests/smoke.py "$dir/quickai-whisper-avx2.exe"
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build (Apple silicon and Intel, one program)
+        run: build/macos.sh
+      - name: Smoke test
+        run: python3 tests/smoke.py build/out/quickai-whisper-*-macos-universal/quickai-whisper
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  draft:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows-test, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Make the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          sha256sum quickai-whisper-* > SHA256SUMS
+          cat SHA256SUMS
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "quickai-whisper $TAG" \
+            --notes "The program QuickAI runs to write down what you say. SHA256SUMS has the checksums." \
+            quickai-whisper-* SHA256SUMS

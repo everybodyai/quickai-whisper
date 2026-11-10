@@ -1,0 +1,29 @@
+# builds and packages
+/build-*/
+/build/out/
+/dist/
+/out/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.exe
+*.dll
+*.so
+*.dylib
+
+# speech models the tests download, and what they write
+/models/
+*.bin
+/tests/out/
+
+# editors and systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
