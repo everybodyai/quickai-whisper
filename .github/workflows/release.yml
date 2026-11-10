@@ -64,7 +64,7 @@ jobs:
           python tests/smoke.py "$dir/quickai-whisper-avx2.exe"
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
