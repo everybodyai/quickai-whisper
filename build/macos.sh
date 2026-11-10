@@ -15,7 +15,7 @@ for arch in arm64 x86_64; do
     extra=()
     [ "$arch" = x86_64 ] && extra=(-DQUICKAI_WHISPER_CPU=avx2)
     cmake -S "$ROOT_DIR" -B "$ROOT_DIR/build/out/macos-$arch" -DCMAKE_OSX_ARCHITECTURES="$arch" \
-        -DCMAKE_SYSTEM_PROCESSOR="$arch" -DGGML_METAL=OFF "${extra[@]}" >/dev/null
+        -DCMAKE_SYSTEM_PROCESSOR="$arch" -DGGML_METAL=OFF ${extra[@]+"${extra[@]}"} >/dev/null
     cmake --build "$ROOT_DIR/build/out/macos-$arch" -j "$(sysctl -n hw.ncpu)" --target quickai-whisper
 done
 lipo -create -output "$OUT/quickai-whisper" \
