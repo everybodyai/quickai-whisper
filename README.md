@@ -30,7 +30,7 @@ Face. `--threads` is 8 at most by default. whisper.cpp says nothing on the error
 It talks on its input and output, a request at a time:
 
 1. Started, it loads the model and says one line:
-   `{"ready":true,"version":"0.1.0","whisper":"1.8.3","system":"AVX = 1 | AVX2 = 1 | ..."}`, or
+   `{"ready":true,"version":"0.2.0","whisper":"1.8.3","system":"AVX = 1 | AVX2 = 1 | ..."}`, or
    `{"ready":false,"error":"..."}` and ends.
 2. A request is a line, `transcribe <id> <samples> <language>`, where `language` is a code whisper knows (`en`, `ml`) or
    `auto`, followed by `<samples>` samples of 16 kHz mono sound as 32-bit floats from -1 to 1, little-endian.
@@ -40,10 +40,13 @@ It talks on its input and output, a request at a time:
 4. `quit`, or the end of its input, ends it. A line that is not a request ends it too, since what follows it cannot be
    told from samples.
 
-It decodes as a person talking to an assistant needs: greedy, once (no tries at higher temperatures), in one piece for
-anything under 30 seconds, with the encoder's window fitted to the recording (at least about 8 seconds of it). With the
-avx2 build and the base model, a 3-second sentence takes about 0.25 s and 11 seconds of speech about 2 s on a desktop
-processor.
+It decodes as a person talking to an assistant needs: greedy, in one piece for anything under 30 seconds, and decoded
+again at a higher temperature when what came out repeats itself or is unsure of every word (whisper's own fallback).
+For English the encoder's window is fitted to the recording, at least 15 seconds of it, which is twice as quick as the
+whole 30 seconds and as accurate; for every other language, and when the language is to be told, it is the whole 30
+seconds whisper was trained on, since a smaller one makes it repeat a phrase or make up words. With the avx2 build on a
+desktop processor, a 3-second English sentence takes about 0.5 s with the base model; a 5-second Hindi one about 1.3 s
+with base and 4 to 5 s with small.
 
 ## The builds
 

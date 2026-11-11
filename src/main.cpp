@@ -9,7 +9,7 @@
 //   quickai-whisper --system-info
 //
 // The protocol (README.md):
-//   started:  {"ready":true,"version":"0.1.0","whisper":"1.8.3","system":"AVX = 1 | ..."}
+//   started:  {"ready":true,"version":"0.2.0","whisper":"1.8.3","system":"AVX = 1 | ..."}
 //             or {"ready":false,"error":"..."}, and it ends
 //   request:  a line `transcribe <id> <samples> <language>` (a whisper language code, or `auto`), then <samples>
 //             samples of 16 kHz mono as 32-bit floats, little-endian, -1 to 1
@@ -118,17 +118,22 @@ std::string written_down(whisper_context * ctx, const std::vector<float> & sampl
     p.print_special = false;
     p.print_timestamps = false;
     p.n_threads = threads;
-    // the encoder's window fitted to what was said, up to its 30 s (1500 frames, 50 a second), and not under about
-    // 8 s: a smaller one makes it repeat itself on a short sentence
+    // the encoder's window: for English, fitted to what was said and not under 15 s (750 frames, 50 a second), which
+    // is twice as quick as its whole 30 s and as accurate; for every other language, and when the language is to be
+    // told, the whole 30 s it was trained on. A window under 30 s makes it repeat a phrase until it stops, or write
+    // made-up words, in other languages: measured on Common Voice sentences of 3 to 7 s with the small model, Hindi
+    // went from 176 characters wrong in a hundred (7.7 s) to 43 (15 s) and 24 (30 s), Urdu from 45 to 16.
     const float seconds = static_cast<float>(samples.size()) / RATE;
     if (seconds < 29.0f) {
-        p.audio_ctx = std::clamp(static_cast<int>(seconds * 50.0f) + 64, 384, 1500);
+        if (language == "en") {
+            p.audio_ctx = std::clamp(static_cast<int>(seconds * 50.0f) + 64, 750, 1500);
+        }
         // what a person says at once is one piece
         p.single_segment = true;
     }
-    // decoded once (no tries again at higher temperatures, which a sentence it hears badly can turn into seconds of
-    // made-up words), and no piece longer than a long sentence or two
-    p.temperature_inc = 0.0f;
+    // what it decodes badly (repeating itself, or unsure of every word) is decoded again at a higher temperature, as
+    // whisper does by default; and no piece longer than a long sentence or two
+    p.temperature_inc = 0.2f;
     p.max_tokens = 160;
     if (whisper_full(ctx, p, samples.data(), static_cast<int>(samples.size())) != 0) {
         throw std::runtime_error("the speech could not be written down");
